@@ -1,0 +1,80 @@
+[
+  {
+    "template_file": "index.html",
+    "context": {
+      "years_appsec": 2,
+      "htb_since": 2021,
+      "capabilities": [
+        { "icon": "bi-crosshair2", "label": "Web Pentesting", "desc": "Vulnerability identification, exploit development and web application security testing." },
+        { "icon": "bi-shield-lock", "label": "AppSec", "desc": "Risk analysis, security code reviews, vulnerability management and remediation." },
+        { "icon": "bi-code-slash", "label": "Full Stack Dev", "desc": "Web application development, code refactoring and quality assurance." },
+        { "icon": "bi-terminal", "label": "DevOps", "desc": "Server provisioning, infrastructure automation and environment configuration." }
+      ],
+      "certifications": [
+        "HackLab 2024 Nacional — 1st place · UTN",
+        "HackLab 2023 Regional — Winner · UTN",
+        "Introducción al Hacking · Hack4u (2024)",
+        "Ethical Hacking · EducacionIT",
+        "Google Hacking & Social Engineering · EducacionIT"
+      ],
+      "projects": [
+        {
+          "name": "Sentinel",
+          "desc": "AI-assisted white-box pentesting skill. 6-phase automated pipeline covering 13 CWEs.",
+          "tags": ["#appsec", "#claude-code", "#pentesting"],
+          "badge": "private"
+        },
+        {
+          "name": "Gotterblick",
+          "desc": "Vulnerability management platform for small orgs. CVE tracking + OWASP risk scoring.",
+          "tags": ["#django", "#python", "#vuln-mgmt"],
+          "badge": "github",
+          "url": "https://github.com/grepmam/gotterblick"
+        },
+        {
+          "name": "Educativa Red Prompt",
+          "desc": "Fuzzing tool for AI chatbot security testing — prompt injection & adaptive fuzzing.",
+          "tags": ["#ai-security", "#fuzzing", "#python"],
+          "badge": "private"
+        },
+        {
+          "name": "Ultra Pentest",
+          "desc": "Simplified ZAP CLI wrapper for fast web vulnerability scanning via config files.",
+          "tags": ["#zap", "#python", "#automation"],
+          "badge": "github",
+          "url": "https://github.com/grepmam/ultra-pentest"
+        },
+        {
+          "name": "Cleopatra Moodle Attack",
+          "desc": "Brute-force and dictionary attack tool for Moodle login pages with multi-core processing and Tor support.",
+          "tags": ["#python", "#bruteforce", "#moodle"],
+          "badge": "github",
+          "url": "https://github.com/grepmam/cleopatra-moodle-attack"
+        },
+        {
+          "name": "Erica Password Cracking",
+          "desc": "Tool for cracking multiple algorithm families with their respective versions.",
+          "tags": ["#python", "#cracking", "#security"],
+          "badge": "github",
+          "url": "https://github.com/grepmam/Erica-PasswordCracking"
+        }
+      ],
+      "writeups": [
+        {
+          "title": "HackTheBox: Sau",
+          "date": "24 Jul 2023",
+          "platform": "HackTheBox",
+          "desc": "Linux machine exploiting SSRF in request-baskets to reach a Maltrail instance vulnerable to unauthenticated RCE, followed by sudo privilege escalation.",
+          "tags": ["#htb", "#ssrf", "#linux", "#privesc"],
+          "url": "htb-sau.html"
+        }
+      ],
+      "contacts": [
+        { "name": "GitHub", "icon": "bi-github", "url": "https://github.com/grepmam" },
+        { "name": "LinkedIn", "icon": "bi-linkedin", "url": "https://www.linkedin.com/in/marco45612000/" },
+        { "name": "HackTheBox", "icon": "bi-box", "url": "https://app.hackthebox.com/public/users/154673" },
+        { "name": "RootMe", "icon": "bi-key", "url": "https://www.root-me.org/grepmam" }
+      ]
+    }
+  }
+]

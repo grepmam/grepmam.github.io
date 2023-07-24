@@ -1,0 +1,12 @@
+/* docs/css/vars.css */
+:root {
+    --bg:          #000000;
+    --surface:     #0a0a0a;
+    --accent:      #ef4444;
+    --accent-dim:  rgba(239, 68, 68, 0.27);
+    --accent-line: rgba(239, 68, 68, 0.20);
+    --text-primary:   #ffffff;
+    --text-secondary: #777777;
+    --text-muted:     #444444;
+    --font: 'Courier New', Courier, monospace;
+}

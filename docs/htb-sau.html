@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>grepmam</title>
+  <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="d-flex flex-column min-vh-100">
+    <nav class="navbar navbar-dark border-bottom border-dark-subtle px-3">
+  <a class="navbar-brand font-monospace text-danger small" href="/">grepmam@home:~$</a>
+  <button class="navbar-toggler border-0 d-md-none"
+          type="button"
+          data-bs-toggle="offcanvas"
+          data-bs-target="#offcanvasNav"
+          aria-controls="offcanvasNav"
+          aria-expanded="false"
+          aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+  <div class="offcanvas offcanvas-end bg-black" tabindex="-1" id="offcanvasNav">
+    <div class="offcanvas-header">
+      <span class="font-monospace text-danger small">grepmam@home:~$</span>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <ul class="nav flex-column flex-md-row gap-3 ms-md-auto">
+        <li class="nav-item"><a class="nav-link text-secondary text-uppercase small" href="/#writeups"><i class="bi bi-journal-text"></i> Writeups</a></li>
+        <li class="nav-item"><a class="nav-link text-secondary text-uppercase small" href="/#projects"><i class="bi bi-folder"></i> Projects</a></li>
+      </ul>
+    </div>
+  </div>
+  <ul class="nav gap-3 d-none d-md-flex">
+    <li class="nav-item"><a class="nav-link text-secondary text-uppercase small" href="/#writeups"><i class="bi bi-journal-text"></i> Writeups</a></li>
+    <li class="nav-item"><a class="nav-link text-secondary text-uppercase small" href="/#projects"><i class="bi bi-folder"></i> Projects</a></li>
+  </ul>
+</nav>
+    <main class="flex-grow-1">
+      <div class="container py-5" style="max-width: 1200px;">
+        
+<div class="article">
+  <h4 id="hackthebox-sau">HackTheBox: Sau</h4>
+<hr>
+<h5 id="introduction">Introduction</h5>
+<p>Hello everyone. Today I present my first writeup, in which we will
+explore a Linux machine with a series of interesting vulnerabilities. In
+this machine, we will face a security challenge that includes three
+different vulnerabilities. The first is an <em>SSRF</em> vulnerability.
+Then, we will continue with a remote command execution flaw. Finally,
+the last step of this journey will be a privilege escalation through
+<em>SUDO</em> on systemd. This vulnerability will allow us to obtain
+administrative privileges on the system and, therefore, full control
+over the machine.</p>
+<h5 id="reconnaissance-and-enumeration">Reconnaissance and
+Enumeration</h5>
+<p>I run a scan with <em>NMAP</em>:</p>
+<p><img src="assets/img/htb/sau/capture1.png" /></p>
+<p>We see that there are three ports, two open and one filtered. We
+won’t use <em>SSH</em>, port 80 is protected, so for now we’ll ignore
+it. Let’s analyze what’s on port 55555. We go to the browser and check
+if it’s accessible:</p>
+<p><img src="assets/img/htb/sau/capture2.png" /></p>
+<p>We are looking at a web service, let’s start enumerating it.</p>
+<p>By googling we learn what this software is about. It’s a REST API
+used to analyze requests. We can create “baskets” where each one will
+hold the requests made to it. Let’s try to enumerate possible
+directories, maybe we’ll find something:</p>
+<p><img src="assets/img/htb/sau/capture3.png" /></p>
+<p>We don’t find anything beyond what we already know, let’s check if
+there are subdomains:</p>
+<p><img src="assets/img/htb/sau/capture4.png" /></p>
+<p>Nothing. By the way, we also have the software version, which will be
+useful later:</p>
+<p><img src="assets/img/htb/sau/capture7.png" /></p>
+<p>Let’s start analyzing the web functionality. We create the
+basket:</p>
+<p><img src="assets/img/htb/sau/capture5.png" /></p>
+<p>We access it. Here we can inspect the requests through the created
+URL. There are several sections, but one in particular is for server
+configuration:</p>
+<p><img src="assets/img/htb/sau/capture6.png" /></p>
+<h5 id="exploitation">Exploitation</h5>
+<h6 id="server-side-request-forgery">Server Side Request Forgery</h6>
+<p>If we analyze each input carefully, there is a “forward URL” that, if
+not properly sanitized, we can take advantage of. To test, we’ll create
+a small server to handle the redirection:</p>
+<p><img src="assets/img/htb/sau/capture8.png" /></p>
+<p><img src="assets/img/htb/sau/capture9.png" /></p>
+<p>When making the request, we observe that it works, which indicates
+that we found an SSRF vulnerability:</p>
+<p><img src="assets/img/htb/sau/capture10.png" /></p>
+<p><img src="assets/img/htb/sau/capture11.png" /></p>
+<p>Remember that at the beginning we found port 80 and it was filtered?
+Well, now that we know we have this flaw, we can bypass the firewall
+that blocks access to it. To do this, we change the “forward URL”:</p>
+<p><img src="assets/img/htb/sau/capture12.png" /></p>
+<p>This vulnerability is known as <a
+href="https://nvd.nist.gov/vuln/detail/CVE-2023-27163">CVE-2023-27163</a>.
+With the Request-Baskets software version, a simple search will give you
+an exploit to automate the process.</p>
+<h6 id="os-command-execution">OS Command Execution</h6>
+<p>When we make the request through the forward to port 80 of the local
+machine, we find a new service called Maltrail:</p>
+<p><img src="assets/img/htb/sau/capture13.png" /></p>
+<p>This software is responsible for analyzing traffic for malicious
+activity. Again we have the program version. Searching on Google, we
+find a <a
+href="https://huntr.dev/bounties/be3c5204-fbd9-448d-b97c-96a8d2941e87/">vulnerability</a>
+that involves the lack of validation on the username parameter input in
+the login. We modify the forward again but this time with the login:</p>
+<p><img src="assets/img/htb/sau/capture14.png" /></p>
+<p>We create a temporary server with netcat and now with CURL, we make
+the request sending the username parameter with the reverse shell (in
+Python3) encoded in base64:</p>
+<p><img src="assets/img/htb/sau/capture15.png" /></p>
+<h5 id="privilege-escalation">Privilege Escalation</h5>
+<p>Alright, we are inside the system. But we still have this important
+phase left. The first thing I always try is running “sudo -l” to check
+if we have commands that allow us to execute with administrator
+permissions. So:</p>
+<p><img src="assets/img/htb/sau/capture16.png" /></p>
+<p>Bingo! We can execute “systemd” as administrator, but it’s very
+specific. By googling, I found a vulnerability called <a
+href="https://nvd.nist.gov/vuln/detail/CVE-2023-26604">CVE-2023-26604</a>.
+SystemD has a vulnerability in versions below 247, where the LESSSECURE
+variable is not set to 1, allowing us to execute commands with less:</p>
+<p><img src="assets/img/htb/sau/capture17.png" /></p>
+<p>And we are root!</p>
+<p><strong>~Grepmam</strong></p>
+
+</div>
+
+      </div>
+    </main>
+    <footer class="border-top border-dark-subtle px-3 py-2 d-flex justify-content-between align-items-center">
+  <span class="text-secondary small">grepmam &copy; 2026</span>
+  <div class="d-flex gap-3">
+    <a href="https://github.com/grepmam" target="_blank" rel="noopener" class="text-secondary fs-5" aria-label="GitHub"><i class="bi bi-github"></i></a>
+    <a href="https://www.linkedin.com/in/marco45612000/" target="_blank" rel="noopener" class="text-secondary fs-5" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
+  </div>
+</footer>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
