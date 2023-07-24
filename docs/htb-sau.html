@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grepmam Blog</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+          <nav class="navbar navbar-expand-lg">
+  <div class="container-fluid">
+    <a class="navbar-brand fs-2 g-link" href="index.html">grepmam@home:~$</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        
+        <li class="nav-item">
+          <a class="nav-link text-white" href="writeups.html">Writeups</a>
+        </li>
+        
+        <li class="nav-item">
+          <a class="nav-link text-white" href="projects.html">Projects</a>
+        </li>
+        
+        <li class="nav-item">
+          <a class="nav-link text-white" href="about_me.html">About Me</a>
+        </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+        </header>
+    
+        <main class="mt-5">
+          <h4 id="hackthebox-sau">HackTheBox: Sau</h4>
+<hr>
+<h5 id="introducción">Introducción</h5>
+<p>Buenas tardes a todos. Hoy les presento mi primer writeup, en el cual
+exploraremos una máquina Linux con una serie de interesantes
+vulnerabilidades. En esta máquina, nos enfrentaremos a un desafío de
+seguridad que incluye tres vulnerabilidades diferentes. La primera es
+una vulnerabilidad de <em>SSRF</em>. Luego, continuaremos con una falla
+de ejecución de comandos remotos. Finalmente, el último paso de este
+recorrido será una escalada de privilegios mediante <em>SUDO</em> en
+systemd. Esta vulnerabilidad nos permitirá obtener privilegios
+administrativos en el sistema y, por lo tanto, un control total sobre la
+máquina.</p>
+<h5 id="reconocimiento-y-enumeración">Reconocimiento y Enumeración</h5>
+<p>Realizo un escaneo con <em>NMAP</em>:</p>
+<p><img src="assets/htb/sau/capture1.png" /></p>
+<p>Vemos que hay tres puertos, dos abiertos y uno filtrado. El
+<em>SSH</em> no lo usaremos, el 80 está protegido, así que por ahora lo
+ignoramos. Analicemos que hay en el 55555. Vamos al navegador y
+verificamos si es accesible:</p>
+<p><img src="assets/htb/sau/capture2.png" /></p>
+<p>Estamos delante de un servicio web, empecemos a enumerarla.</p>
+<p>Googleando sabemos de que trata este software en si. Una REST API que
+sirve para analizar peticiones. Podemos crear “cestos” donde cada uno
+tendrá las peticiones realizadas. Vamos a intentar enumerar posibles
+directorios, quizás encontremos algo:</p>
+<p><img src="assets/htb/sau/capture3.png" /></p>
+<p>No encontramos nada más allá de lo que ya conocemos, probemos si hay
+subdominios:</p>
+<p><img src="assets/htb/sau/capture4.png" /></p>
+<p>Nada. Por cierto, también tenemos la versión del software, nos será
+útil más adelante:</p>
+<p><img src="assets/htb/sau/capture7.png" /></p>
+<p>Empezaremos analizando la funcionalidad de la web. Creamos el
+cesto:</p>
+<p><img src="assets/htb/sau/capture5.png" /></p>
+<p>Accedemos. Acá ya podremos inspeccionar las peticiones por medio de
+la url creada. Hay varias secciones, pero hay una en especial que es
+para configurar el servidor:</p>
+<p><img src="assets/htb/sau/capture6.png" /></p>
+<h5 id="explotación">Explotación</h5>
+<h6 id="server-side-request-forgery">Server Side Request Forgery</h6>
+<p>Si analizamos bien cada entrada, hay un “forward URL”, que si no está
+correctamente sanitizada podremos aprovecharnos de tal. Para probar,
+crearemos un pequeño servidor para hacer la redirección:</p>
+<p><img src="assets/htb/sau/capture8.png" /></p>
+<p><img src="assets/htb/sau/capture9.png" /></p>
+<p>Al realizar la petición, observamos que funciona, lo cual indica que
+encontramos una vulnerabilidad SSRF:</p>
+<p><img src="assets/htb/sau/capture10.png" /></p>
+<p><img src="assets/htb/sau/capture11.png" /></p>
+<p>¿Recuerdan que al principio encontramos el puerto 80 y estaba
+filtrado? Bueno, ahora que sabemos que tenemos esta falla, podemos
+bypassear el firewall que bloquea el acceso a tal. Para esto, cambiamos
+el “forward URL”:</p>
+<p><img src="assets/htb/sau/capture12.png" /></p>
+<p>Esta vulnerabilidad se conoce como <a
+href="https://nvd.nist.gov/vuln/detail/CVE-2023-27163">CVE-2023-27163</a>.
+Con la versión del software de Request-Baskets, con una simple búsqueda
+tendrán un exploit para automatizar el proceso.</p>
+<h6 id="os-command-execution">OS Command Execution</h6>
+<p>Cuando hacemos la petición por medio del forward al puerto 80 de la
+máquina local, encontramos un nuevo servicio llamado Maltrail:</p>
+<p><img src="assets/htb/sau/capture13.png" /></p>
+<p>Este software se encarga de analizar el tráfico por actividades
+maliciosas. Nuevamente tenemos la versión del programa. Buscando en
+Google, encontramos una <a
+href="https://huntr.dev/bounties/be3c5204-fbd9-448d-b97c-96a8d2941e87/">vulnerabilidad</a>
+que se trata sobre la falta de validación en la entrada del parámetro
+username del login. Modificamos de vuelta el forward pero esta vez con
+el login:</p>
+<p><img src="assets/htb/sau/capture14.png" /></p>
+<p>Creamos un servidor temporal con netcat y ahora con CURL, realizamos
+la petición enviando el parámetro username con la reverse shell (en
+Python3) codificado en base64:</p>
+<p><img src="assets/htb/sau/capture15.png" /></p>
+<h5 id="escalación-de-privilegios">Escalación de privilegios</h5>
+<p>Bien, estamos dentro del sistema. Pero aún nos falta esta fase
+importante. Lo primero que siempre pruebo es hacer un “sudo -l” para
+verificar si tenemos comandos que nos permitan ejecutar con permisos de
+administrador. Entonces:</p>
+<p><img src="assets/htb/sau/capture16.png" /></p>
+<p>Bingo! Podemos ejecutar “systemd” como administrador, pero es muy
+específico. Googleando, encontré una vulnerabilidad llamada <a
+href="https://nvd.nist.gov/vuln/detail/CVE-2023-26604">CVE-2023-26604</a>.
+SystemD presenta una vulnerabilidad en versiones menores a la 247, que
+no tiene seteada la variable LESSSECURE en 1, por lo que nos permite
+ejecutar comandos con less:</p>
+<p><img src="assets/htb/sau/capture17.png" /></p>
+<p>Y somos root!</p>
+<p><strong>~Grepmam</strong></p>
+
+        </main>
+    
+        <footer class="fixed-bottom">
+          <div class="bg-dark text-center p-2">
+    <a class="g-link" href="https://github.com/grepmam">grepmam © 2025</a>
+</div>
+        </footer>
+    </div>
+</body>
+</html>

@@ -1,0 +1,6 @@
+:root {
+    --g-text-color: #3dff40;
+    --g-link-color: var(--g-text-color);
+    --g-link-hover-color: #008cff;
+    --g-hr-color: #9e9e9e; 
+}
