@@ -61,6 +61,14 @@
       ],
       "writeups": [
         {
+          "title": "RootMe: Nginx - Alias Misconfiguration",
+          "date": "09 Apr 2026",
+          "platform": "Root-Me",
+          "desc": "Web challenge abusing an nginx alias misconfiguration (missing trailing slash in location) to traverse outside the intended directory.",
+          "tags": ["#rootme", "#nginx", "#web", "#path-traversal"],
+          "url": "rootme-nginx-alias-misconfiguration.html"
+        },
+        {
           "title": "HackTheBox: Sau",
           "date": "24 Jul 2023",
           "platform": "HackTheBox",

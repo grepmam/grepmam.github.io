@@ -1,7 +1,7 @@
 @import "vars.css";
 
 body {
-    background: linear-gradient(rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0.95)), url('../assets/img/background.jpg') no-repeat center center fixed !important;
+    background: linear-gradient(rgba(0, 0, 0, 0.92), rgba(0, 0, 0, 0.92)), url('../assets/img/background.jpg') no-repeat center center fixed !important;
     background-size: cover !important;
     font-family: var(--font);
     text-align: justify;
