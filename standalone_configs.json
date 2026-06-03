@@ -20,9 +20,10 @@
       "projects": [
         {
           "name": "Sentinel",
-          "desc": "AI-assisted white-box pentesting skill. 6-phase automated pipeline covering 13 CWEs.",
+          "desc": "Autonomous semantic security auditor for web apps. A Claude Code plugin that reasons about data flows, generates exploit hypotheses, and validates them against a running instance.",
           "tags": ["#appsec", "#claude-code", "#pentesting"],
-          "badge": "private"
+          "badge": "github",
+          "url": "https://github.com/grepmam/sentinel"
         },
         {
           "name": "Gotterblick",
