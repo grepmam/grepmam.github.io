@@ -62,6 +62,14 @@
       ],
       "writeups": [
         {
+          "title": "VulnHub: HarryPotter Part 1 - Aragog",
+          "date": "05 Jul 2026",
+          "platform": "VulnHub",
+          "desc": "First of the three-part Harry Potter series, tackled with pure Metasploit Framework. Unauthenticated RCE in wp-file-manager (CVE-2020-25213), MySQL credential reuse and phpass cracking to pivot to a user, and a root cron job abused for privilege escalation.",
+          "tags": ["#vulnhub", "#metasploit", "#wordpress", "#rce", "#privesc"],
+          "url": "vulnhub-hp-part1-aragog.html"
+        },
+        {
           "title": "RootMe: Nginx - Alias Misconfiguration",
           "date": "09 Apr 2026",
           "platform": "Root-Me",

@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>grepmam</title>
+  <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="d-flex flex-column min-vh-100">
+    <nav class="navbar navbar-dark border-bottom border-dark-subtle px-3">
+  <a class="navbar-brand font-monospace text-danger small" href="/">grepmam@home:~$</a>
+  <button class="navbar-toggler border-0 d-md-none"
+          type="button"
+          data-bs-toggle="offcanvas"
+          data-bs-target="#offcanvasNav"
+          aria-controls="offcanvasNav"
+          aria-expanded="false"
+          aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+  <div class="offcanvas offcanvas-end bg-black" tabindex="-1" id="offcanvasNav">
+    <div class="offcanvas-header">
+      <span class="font-monospace text-danger small">grepmam@home:~$</span>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <ul class="nav flex-column flex-md-row gap-3 ms-md-auto">
+        <li class="nav-item"><a class="nav-link text-secondary text-uppercase small" href="/#writeups"><i class="bi bi-journal-text"></i> Writeups</a></li>
+        <li class="nav-item"><a class="nav-link text-secondary text-uppercase small" href="/#projects"><i class="bi bi-folder"></i> Projects</a></li>
+      </ul>
+    </div>
+  </div>
+  <ul class="nav gap-3 d-none d-md-flex">
+    <li class="nav-item"><a class="nav-link text-secondary text-uppercase small" href="/#writeups"><i class="bi bi-journal-text"></i> Writeups</a></li>
+    <li class="nav-item"><a class="nav-link text-secondary text-uppercase small" href="/#projects"><i class="bi bi-folder"></i> Projects</a></li>
+  </ul>
+</nav>
+    <main class="flex-grow-1">
+      <div class="container py-5" style="max-width: 1200px;">
+        
+<div class="article">
+  <h4 id="vulnhub-harrypotter-part-1---aragog">VulnHub: HarryPotter Part 1
+- Aragog</h4>
+<hr>
+<h5 id="introduction">Introduction</h5>
+<p>Hello everyone. Today I bring you the first part of three about the
+Harry Potter machines. Across the series we need to find the eight
+horcruxes (flags) hidden in each compromised account of the machines.
+I’ve been practicing a lot with manual techniques, but this time I want
+to work with pure Metasploit Framework to automate more of the process.
+Without further ado, let’s begin.</p>
+<h5 id="architecture-for-attack">Architecture for attack</h5>
+<p>Before starting, it’s worth understanding how the lab is laid out.
+This series is built as three chained machines, where each one is only
+reachable from the previous:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/arch.png" /></p>
+<p>Our attacker box sits on the <code>10.0.2.0/24</code> network, which
+only gives us direct access to <strong>Aragog</strong>
+(<code>10.0.2.4</code>). Aragog is dual-homed: it also has an interface
+on the internal <code>10.10.10.0/24</code> network, where
+<strong>Fawkes</strong> (<code>10.10.10.3</code>) lives. Fawkes, in
+turn, reaches a third network, <code>20.20.20.0/24</code>, home to
+<strong>Nagini</strong> (<code>20.20.20.3</code>). In other words, to
+move forward we’ll have to compromise each machine and pivot through it
+to reach the next one. In this first part, we focus on Aragog.</p>
+<h5 id="reconnaissance">Reconnaissance</h5>
+<p>First, we can ping the target to confirm it’s alive and get a hint
+about the operating system we’re up against:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture0.png" /></p>
+<p>The host replies with a <code>ttl=64</code>, which is the default for
+Linux systems, so we already know we’re dealing with a Linux box.</p>
+<p>Now, let’s scan the target. Working from within Metasploit,
+<code>db_nmap</code> runs the scan and stores the results straight into
+the workspace database:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture1.png" /></p>
+<p>The scan resolves the host as <code>aragog.hogwarts</code> and shows
+only two open ports: <code>22/tcp</code> (ssh) and <code>80/tcp</code>
+(http).</p>
+<h5 id="enumeration">Enumeration</h5>
+<p>With the open ports identified, let’s dig deeper into those services
+with version and default-script detection:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture2.png" /></p>
+<p>This gives us a much clearer picture. Port 22 is running OpenSSH
+7.9p1 on Debian 10, and port 80 is serving Apache httpd 2.4.38 (Debian).
+Nmap also notes that the site “doesn’t have a title”, so the web root is
+likely a bare default page — the interesting content is probably
+elsewhere.</p>
+<p>Since everything is being written to the database, we can pull a
+clean summary at any time with the <code>services</code> command:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture3.png" /></p>
+<p>With SSH and a web server as our only entry points, and no obvious
+credentials yet, the web service on port 80 is the natural place to
+start enumerating.</p>
+<p>Since the box identifies itself as <code>aragog.hogwarts</code>, we
+map that hostname to its IP in our <code>/etc/hosts</code> file. This
+way we can reach the site by name and make sure any virtual-host based
+routing resolves correctly:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture4.png" /></p>
+<p>Browsing to the site, we’re greeted by nothing more than a Harry
+Potter image — no links, no forms, no visible functionality:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture5.png" /></p>
+<p>A bare landing page like this usually means the interesting content
+is hidden elsewhere, so the logical next step is to start fuzzing for
+directories and files.</p>
+<p>Staying inside Metasploit, we use the
+<code>auxiliary/scanner/http/dir_scanner</code> module to brute-force
+directories. We just point <code>RHOSTS</code> at
+<code>aragog.hogwarts</code> and leave the rest of the options at their
+defaults:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture6.png" /></p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture7.png" /></p>
+<p>The scan returns a <code>200</code> on an interesting folder called
+<code>/blog</code>. Before opening it in the browser, let’s also
+enumerate files with the <code>auxiliary/scanner/http/files_dir</code>
+module:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture8.png" /></p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture9.png" /></p>
+<p>At the web root we only find <code>index.html</code>, and checking
+its source confirms there’s nothing to it beyond the Harry Potter image
+we already saw:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture10.png" /></p>
+<p>So <code>/blog</code> is clearly where we should focus next.</p>
+<p>Accessing <code>/blog</code>, we’re met with a WordPress site that
+renders completely unstyled — the layout looks broken:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture11.png" /></p>
+<p>The reason becomes obvious when we inspect the page source: all the
+CSS, scripts and links are loaded from a different hostname,
+<code>wordpress.aragog.hogwarts</code>. Since that virtual host isn’t in
+our <code>/etc/hosts</code> yet, the browser can’t fetch those assets,
+which is why the styling never loads:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture12.png" /></p>
+<p>The <code>generator</code> meta tag also confirms we’re dealing with
+WordPress 5.0.12. So our next move is to add this new vhost to
+<code>/etc/hosts</code> and start digging into the WordPress
+installation.</p>
+<p>We add <code>wordpress.aragog.hogwarts</code> to our
+<code>/etc/hosts</code> file and, voilà, the site now loads with all of
+its styling in place:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture13.png" /></p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture14.png" /></p>
+<p>Before digging deeper into WordPress, one of the articles catches our
+eye:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture15.png" /></p>
+<p>The “Notice” post mentions that they plan to delete some unused
+WordPress plugins as a security best practice. That’s a strong hint that
+a vulnerable or insecure plugin is installed — exactly the kind of lead
+we want to chase down.</p>
+<p>For WordPress enumeration I prefer to use <code>wpscan</code> instead
+of Metasploit — this tool bundles everything we need into a single scan.
+The command is the following:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">wpscan</span> <span class="at">--url</span> http://wordpress.aragog.hogwarts/blog/ <span class="dt">\</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--enumerate</span> ap,vt,tt,cb,dbe,u,m <span class="dt">\</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">--plugins-detection</span> aggressive <span class="dt">\</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">--plugins-version-detection</span> aggressive <span class="dt">\</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">--detection-mode</span> aggressive</span></code></pre></div>
+<p>The scan comes back with several interesting findings. It confirms
+that XML-RPC is enabled, exposes the <code>readme.html</code>, and
+identifies the WordPress version as 5.0.12 (flagged as insecure):</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture16.png" /></p>
+<p>It also enumerates the installed plugins, <code>akismet</code> and
+<code>wp-file-manager</code>:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture17.png" /></p>
+<p>And, thanks to author-id brute forcing, it discovers a valid user:
+<code>wp-admin</code>:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture18.png" /></p>
+<p>Let’s focus on the plugins. Of the two, <code>akismet</code> is
+running the latest version, while <code>wp-file-manager</code> is on
+version 6.0 — clearly out of date, since the latest release is
+8.0.4:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture19.png" /></p>
+<p>An up-to-date plugin is unlikely to help us, but an outdated one like
+<code>wp-file-manager</code> is a prime candidate for a known
+vulnerability. This lines up perfectly with the “unused plugins” hint
+from the blog post, so that’s where we’ll dig next.</p>
+<p>First, let’s understand what <code>wp-file-manager</code> actually
+is:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture20.png" /></p>
+<p>It’s a WordPress plugin that lets administrators upload, edit and
+manage files directly from the dashboard — a lot of power in a single
+plugin, which makes it an attractive target. Now that we know what it
+does, it’s time to look for known vulnerabilities affecting version
+6.0:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture21.png" /></p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture22.png" /></p>
+<p>The search points us to <a
+href="https://nvd.nist.gov/vuln/detail/CVE-2020-25213">CVE-2020-25213</a>,
+a critical (CVSS 9.8) unauthenticated remote code execution flaw
+affecting <code>wp-file-manager</code> versions 6.0 to 6.8 — right in
+our range. Internally, the plugin ships a copy of the <em>elFinder</em>
+file-manager library, and the file
+<code>lib/php/connector.minimal.php</code> exposes elFinder’s command
+handler without any authentication or nonce validation. This means
+anyone can reach it directly and invoke its <code>upload</code> command
+to write arbitrary files — including a PHP webshell — into
+<code>wp-content/plugins/wp-file-manager/lib/files/</code>. In other
+words, no credentials are needed to drop a malicious file on the server
+and execute it, which is exactly what we’ll leverage to get our
+foothold.</p>
+<h5 id="exploitation">Exploitation</h5>
+<p>With the vulnerability understood, the plan is straightforward:
+upload a malicious PHP file through the unauthenticated elFinder
+connector and then execute it. First, we generate the payload with
+<code>msfvenom</code> — a PHP Meterpreter reverse shell set to connect
+back to our machine on port 4444:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture23.png" /></p>
+<p>With the payload ready, we upload it by sending a POST request
+straight to the <code>connector.minimal.php</code> endpoint, invoking
+elFinder’s <code>upload</code> command — no authentication required. The
+JSON response confirms the upload succeeded and, more importantly, tells
+us where our file landed:
+<code>wp-content/plugins/wp-file-manager/lib/files/shell.php</code>:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture24.png" /></p>
+<p>Before triggering the shell, we need something on the other end to
+catch the connection. We set up a listener with Metasploit’s
+<code>exploit/multi/handler</code> module, matching the same payload,
+<code>LHOST</code> and <code>LPORT</code> we used when generating the
+shell:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture25.png" /></p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture26.png" /></p>
+<p>With the handler running, all that’s left is to execute our payload.
+A simple <code>curl</code> request to the uploaded
+<code>shell.php</code> is enough to fire it:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture27.png" /></p>
+<p>And there it is — the payload connects back and Metasploit opens a
+Meterpreter session. A quick <code>getuid</code> confirms we’ve landed
+on the box as the <code>www-data</code> user:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture28.png" /></p>
+<h5 id="privilege-escalation">Privilege Escalation</h5>
+<p>Now that we have a foothold as <code>www-data</code>, the next step
+is to escalate privileges. To hunt for potential attack vectors we’ll
+run LinPEAS. Since we’re working from Metasploit, we background our
+session and search for the PEASS launcher module,
+<code>post/multi/gather/peass</code>, which uploads and runs the script
+for us:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture29.png" /></p>
+<p>We configure the module, pointing <code>SESSION</code> at our active
+Meterpreter session and setting <code>WINPEASS</code> to
+<code>false</code> so it runs LinPEAS instead of WinPEAS:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture30.png" /></p>
+<p>LinPEAS produces a lot of output, but a couple of things stand out.
+First, looking at the users and groups on the system:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture31.png" /></p>
+<p>Beyond the usual service accounts, three catch our attention:
+<code>root</code>, <code>hagrid98</code> and <code>ginny</code>. The
+last two are real user accounts and become our natural targets for
+lateral movement.</p>
+<p>The second interesting finding comes from LinPEAS searching for
+passwords inside PHP config files:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture32.png" /></p>
+<p>In <code>/etc/wordpress/config-default.php</code> it finds hardcoded
+database credentials: the MySQL user <code>root</code> with the password
+<code>mySecr3tPass</code>. Password reuse is extremely common, so the
+obvious next step is to try this password against the system accounts we
+just found and see if any of them lets us log in.</p>
+<p>We’ll use Metasploit’s <code>mysql_sql</code> module to query the
+database, but MySQL is only listening locally on the target, so first we
+need a way to reach port 3306 from our machine. From our Meterpreter
+session we set up a port forward with <code>portfwd</code>, mapping our
+local port 3306 to the victim’s <code>127.0.0.1:3306</code>. From now
+on, anything we send to <code>127.0.0.1:3306</code> will be relayed
+straight to MySQL on the victim:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture33.png" /></p>
+<p>Back in Metasploit, we background the session and search for the
+module we want, <code>auxiliary/admin/mysql/mysql_sql</code>, which lets
+us run arbitrary SQL against the database:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture34.png" /></p>
+<p>We load the module and check its options, pointing it at our
+forwarded port and filling in the credentials we recovered —
+authenticating as <code>root</code> with the password
+<code>mySecr3tPass</code> against <code>127.0.0.1:3306</code>:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture35.png" /></p>
+<p>As a quick test, we leave the default <code>select version()</code>
+query and run the module. It connects successfully and returns
+<code>10.3.27-MariaDB</code>, which confirms our recovered credentials
+are valid and that we now have working SQL access to the database
+through the tunnel:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture36.png" /></p>
+<p>Now that we have SQL access, we go straight after the WordPress users
+table. We set the module’s <code>SQL</code> option to
+<code>SELECT user_login,user_pass FROM wordpress.wp_users</code> and run
+it, which dumps our first user, <code>hagrid98</code>, together with its
+password hash:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture37.png" /></p>
+<p>The hash starts with <code>$P$</code>, which tells us it’s a
+WordPress phpass hash. It’s not directly reusable, so our next move will
+be to crack it offline and recover the plaintext password.</p>
+<p>We save the hash to a file and throw John the Ripper at it, using the
+<code>phpass</code> format and the classic <code>rockyou.txt</code>
+wordlist. It cracks almost instantly, revealing the plaintext password
+<code>password123</code>:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture38.png" /></p>
+<p>With a valid password in hand for <code>hagrid98</code>, we can now
+try to reuse it to log into the system and finally move off the
+<code>www-data</code> account.</p>
+<p>We’ll do this with Metasploit’s <code>ssh_login</code> module. We
+search for it and load it:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture39.png" /></p>
+<p>Then we set the options: <code>USERNAME</code> to
+<code>hagrid98</code>, <code>PASSWORD</code> to <code>password123</code>
+and <code>RHOSTS</code> pointing at the target on port 22. With
+<code>CreateSession</code> enabled, a successful login will drop us
+straight into an interactive session:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture40.png" /></p>
+<p>The module confirms the credentials are valid and opens a new SSH
+session — we’re now <code>hagrid98</code> on the box (uid 1000):</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture41.png" /></p>
+<p>The session we get is a plain shell, though. To make the rest of the
+work more comfortable, I want to upgrade it to Meterpreter, so we search
+for the <code>post/multi/manage/shell_to_meterpreter</code> module and
+load it:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture42.png" /></p>
+<p>We configure it, pointing <code>SESSION</code> at our SSH session (id
+2) and letting the module spin up a handler to catch the new
+connection:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture43.png" /></p>
+<p>We run it and, once the handler fires, a fresh Meterpreter session
+opens as <code>hagrid98</code>. We now have a much more capable foothold
+to keep pushing the privilege escalation:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture44.png" /></p>
+<p>We interact with the new session and a quick <code>getuid</code>
+confirms we’re now operating as <code>hagrid98</code> through
+Meterpreter:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture45.png" /></p>
+<p>With a proper session on the box, it’s time to claim our reward.
+Listing <code>hagrid98</code>’s home directory reveals a
+<code>horcrux1.txt</code> file, and reading it gives us our first
+horcrux — a base64-encoded string:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture46.png" /></p>
+<p>Decoding it reveals the hidden message:
+<code>1: RidDLE's DiAry dEstroYed By haRry in chaMbEr of SeCrets</code>.
+That’s the first of the eight horcruxes captured:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture47.png" /></p>
+<p>Going back to the LinPEAS output from earlier, another detail stands
+out in the backup files section: a script at
+<code>/opt/.backup.sh</code>, owned by <code>hagrid98</code> and
+recently modified:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture48.png" /></p>
+<p>Let’s see what it does:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture49.png" /></p>
+<p>The script is short: it just recursively copies the WordPress uploads
+directory into <code>/tmp/tmp_wp_uploads</code> — a harmless-looking
+backup routine. On its own it does nothing dangerous, but what matters
+is <em>who owns it</em> and <em>who runs it</em>: the file belongs to
+<code>hagrid98</code>, so we can edit it, and if it turns out to be
+executed by root on a schedule, we could replace its contents with any
+command we want and have root run it for us.</p>
+<p>The fact that it’s a backup script strongly suggests it runs
+periodically, most likely through a cron job owned by root. To confirm
+this theory we’ll use <code>pspy</code>, a tool that lets us watch
+processes and scheduled tasks in real time without needing root. First,
+we download <code>pspy64</code> on our machine:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture50.png" /></p>
+<p>Then we upload it to the target through our Meterpreter session:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture51.png" /></p>
+<p>After a minute, <code>pspy</code> gives us exactly the confirmation
+we were after: the <code>/opt/.backup.sh</code> script is executed by
+<code>root</code> (UID=0) through CRON, and it repeats every minute:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture52.png" /></p>
+<p>This confirms our theory. The script runs as root every minute and,
+crucially, <code>hagrid98</code> owns it — so we can rewrite it with our
+own payload and let the next cron run execute it as root. That’s our
+path to a root shell.</p>
+<p>We edit <code>/opt/.backup.sh</code> and replace its content with the
+classic SUID trick: copy <code>/bin/bash</code> to
+<code>/tmp/sbash</code> and set the SUID bit on it with
+<code>chmod +s</code>. When root runs the script,
+<code>/tmp/sbash</code> will be created as a root-owned SUID binary:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture53.png" /></p>
+<p>Now we just wait for the cron job to fire. A minute later, listing
+<code>/tmp</code> shows our <code>sbash</code> in place — owned by root
+and carrying the SUID bit (<code>-rwsr-sr-x</code>), exactly as planned.
+We run it with <code>/tmp/sbash -p</code> to preserve the elevated
+privileges, and <code>id</code> confirms we now have
+<code>euid=0(root)</code>:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture54.png" /></p>
+<p>Finally, let’s set up persistence and get ourselves a stable root
+shell. From our root context, we generate an SSH key pair and append our
+public key to root’s <code>authorized_keys</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh-keygen</span> <span class="at">-t</span> rsa <span class="at">-f</span> ~/.ssh/id_rsa <span class="at">-N</span> <span class="st">&quot;&quot;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span> ~/.ssh/id_rsa.pub <span class="op">&gt;&gt;</span> /root/.ssh/authorized_keys</span></code></pre></div>
+<p>Then we copy the private key back to our machine and restrict its
+permissions to <code>600</code> — SSH refuses to use a key with loose
+permissions:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture55.png" /></p>
+<p>Now we turn to the <code>ssh_login</code> module again, but this time
+we authenticate with the stolen key: we set <code>KEY_PATH</code> to our
+copied private key and <code>USERNAME</code> to <code>root</code>:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture56.png" /></p>
+<p>We run it and get a successful login as <code>uid=0(root)</code> — a
+fresh SSH session as root opens:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture57.png" /></p>
+<p>As before, we upgrade this plain SSH shell to Meterpreter with the
+<code>shell_to_meterpreter</code> module, pointing it at our new root
+session:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture58.png" /></p>
+<p>And there we have it — a stable Meterpreter session running as
+<code>root</code>. A quick <code>getuid</code> and <code>sysinfo</code>
+confirm full control over the box (Aragog, Debian 10.9):</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture59.png" /></p>
+<p>And now that we’re root, we can grab our second horcrux. Listing
+root’s home directory reveals <code>horcrux2.txt</code>, and reading it
+prints a completion banner confirming we’ve fully pwned Aragog — along
+with the second (and final) horcrux hidden on this machine:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture60.png" /></p>
+<p>Decoding it gives us the second message:
+<code>2: maRvoLo GaUnt's riNg deStrOyed bY DUmbledOre</code>:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture61.png" /></p>
+<p>Before wrapping up, a quick look at the network interfaces with
+<code>ifconfig</code> reveals something interesting: besides the
+<code>10.0.2.0/24</code> network we came in through, the box has a
+second interface sitting on <code>10.10.10.0/24</code>. That internal
+network is our gateway to the rest of the machines in the series, and
+it’s exactly where the pivoting will begin:</p>
+<p><img src="assets/img/vulnhub/hp-part1-aragog/capture62.png" /></p>
+<h5 id="conclusions">Conclusions</h5>
+<p>For now, that’s all, friends. We rooted Aragog and recovered both of
+its horcruxes. In the next article we’ll use this foothold to pivot into
+the <code>10.10.10.0/24</code> network and continue hunting the
+remaining horcruxes. See you there.</p>
+<p><strong>~Grepmam</strong></p>
+
+</div>
+
+      </div>
+    </main>
+    <footer class="border-top border-dark-subtle px-3 py-2 d-flex justify-content-between align-items-center">
+  <span class="text-secondary small">grepmam &copy; 2026</span>
+  <div class="d-flex gap-3">
+    <a href="https://github.com/grepmam" target="_blank" rel="noopener" class="text-secondary fs-5" aria-label="GitHub"><i class="bi bi-github"></i></a>
+    <a href="https://www.linkedin.com/in/marco45612000/" target="_blank" rel="noopener" class="text-secondary fs-5" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
+  </div>
+</footer>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
